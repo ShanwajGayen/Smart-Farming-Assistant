@@ -27,7 +27,6 @@ app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 
-# Complete default class mapping to eliminate "class 11" fallback errors
 DEFAULT_42_CLASSES = [
     "Apple___Apple_scab",
     "Apple___Black_rot",
@@ -40,7 +39,7 @@ DEFAULT_42_CLASSES = [
     "Corn_(maize)___Common_rust_",
     "Corn_(maize)___Northern_Leaf_Blight",
     "Corn_(maize)___healthy",
-    "Grape___Black_rot",               # Index 11
+    "Grape___Black_rot",
     "Grape___Esca_(Black_Measles)",
     "Grape___Leaf_blight_(Isariopsis_Leaf_Spot)",
     "Grape___healthy",
@@ -82,7 +81,7 @@ device = torch.device("cpu")
 if transforms is not None:
     image_transforms = transforms.Compose([
         transforms.Resize((224, 224)),
-        transforms.ToTensor],
+        transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
     ])
 else:
@@ -207,7 +206,7 @@ def remedy():
         except Exception as e:
             print("Gemini API error:", e)
 
-    fallback = f"আক্রান্ত পাতা অপসারণ করুন ও অনুমোদিত ছত্রাকনাশক স্প্রে করুন।" if lang == "bn" else f"Prune heavily infected leaves and apply an appropriate protective organic or copper fungicide."
+    fallback = f"আক্রান্ত পাতা অপসারণ করুন ও অনুমোদিত ছত্রাকনাশক স্প্রে করুন।" if lang == "bn" else "Prune heavily infected leaves and apply an appropriate protective organic or copper fungicide."
     return jsonify({"success": True, "remedy": fallback})
 
 
