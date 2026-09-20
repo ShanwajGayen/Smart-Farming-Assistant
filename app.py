@@ -15,7 +15,7 @@ except Exception:
     transforms = None
 
 from flask import Flask, jsonify, request, send_from_directory
-from PIL import Image
+from PIL import Image, ImageOps
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PUBLIC_DIR = os.path.join(BASE_DIR, "public")
@@ -100,8 +100,8 @@ def init_classes():
                     print(f"Loaded {num_classes} classes from {CLASS_PATH}")
                     return
         except Exception as e:
-            print(f"Using default classes due to: {e}")
-    print(f"Using built-in {num_classes} disease classes.")
+            print(f"Using default classes: {e}")
+    print(f"Using built-in {num_classes} classes.")
 
 
 init_classes()
@@ -149,15 +149,24 @@ def config():
 @app.route("/api/predict", methods=["POST"])
 def predict():
     if not model_loaded:
-        return jsonify({"success": False, "error": "Model not loaded"}), 503
+        return jsonify({"success": False, "error": "Model not ready"}), 503
     if "file" not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
 
     file = request.files["file"]
     try:
-        img = Image.open(file.stream).convert("RGB")
-        tensor = image_transforms(img).unsqueeze(0).to(device)
+        raw_img = Image.open(file.stream)
+        
+        # 1. Correct mobile phone EXIF rotation
+        img = ImageOps.exif_transpose(raw_img)
+        if img.mode != "RGB":
+            img = img.convert("RGB")
 
+        # 2. Limit memory footprint on Render free tier
+        img.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
+
+        # 3. Model inference
+        tensor = image_transforms(img).unsqueeze(0).to(device)
         with torch.no_grad():
             outputs = model(tensor)
             probs = torch.softmax(outputs, dim=1)[0]
@@ -170,7 +179,9 @@ def predict():
 
         best_conf = top5[0]["confidence"]
         best_class = top5[0]["class"]
-        is_not_plant = best_conf < 30.0
+
+        # 4. Realistic threshold for real-world phone photos (1/42 random baseline is ~2.38%)
+        is_not_plant = best_conf < 15.0
 
         return jsonify({
             "success": True,
@@ -180,7 +191,8 @@ def predict():
             "top5": top5,
         })
     except Exception as exc:
-        return jsonify({"error": str(exc)}), 500
+        print(f"Prediction error: {exc}")
+        return jsonify({"error": f"Image processing failed: {str(exc)}"}), 500
 
 
 @app.route("/api/remedy", methods=["POST"])
@@ -190,13 +202,13 @@ def remedy():
     lang = data.get("language", "en")
 
     if not disease or "not a plant" in disease.lower():
-        msg = "এই ছবিটি স্পষ্ট নয়। পাতার পরিষ্কার ছবি দিন।" if lang == "bn" else "Please upload a clear picture of a single crop leaf."
+        msg = "এই ছবিটি স্পষ্ট নয়। পাতার পরিষ্কার ক্লোজ-আপ ছবি দিন।" if lang == "bn" else "Please upload a clear close-up of a single crop leaf."
         return jsonify({"success": True, "remedy": msg})
 
     if GEMINI_API_KEY:
         try:
             target_lang = "Bengali" if lang == "bn" else "English"
-            prompt = f"Act as an agricultural expert. Plant condition: {disease}. Give 2 actionable treatment steps in {target_lang}."
+            prompt = f"Act as an agronomist. Plant diagnosis: {disease}. Provide 2 clear, practical treatment steps in {target_lang}."
             endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
             payload = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode("utf-8")
             req = urllib.request.Request(endpoint, data=payload, headers={"Content-Type": "application/json"})
@@ -206,7 +218,7 @@ def remedy():
         except Exception as e:
             print("Gemini API error:", e)
 
-    fallback = f"আক্রান্ত পাতা অপসারণ করুন ও অনুমোদিত ছত্রাকনাশক স্প্রে করুন।" if lang == "bn" else "Prune heavily infected leaves and apply an appropriate protective organic or copper fungicide."
+    fallback = f"আক্রান্ত পাতা ছেঁটে ফেলুন এবং অনুমোদিত ছত্রাকনাশক স্প্রে করুন।" if lang == "bn" else f"Prune infected foliage and apply an appropriate protective organic or copper fungicide."
     return jsonify({"success": True, "remedy": fallback})
 
 
