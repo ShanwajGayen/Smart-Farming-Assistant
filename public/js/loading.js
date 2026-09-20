@@ -12,25 +12,21 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 400);
   }
 
-  // Force video settings for mobile browsers
   if (video) {
     video.muted = true;
     video.playsInline = true;
     video.setAttribute("playsinline", "");
     video.setAttribute("webkit-playsinline", "");
     video.play().catch(() => {
-      // Autoplay blocked on mobile - dismiss immediately
       dismissLoader();
     });
     video.addEventListener("ended", dismissLoader);
   }
 
-  // Allow user to tap the screen to skip loading immediately
   if (loader) {
     loader.addEventListener("click", dismissLoader);
     loader.addEventListener("touchstart", dismissLoader, { passive: true });
   }
 
-  // HARD TIMEOUT: Guarantee the loader vanishes after 1.5 seconds on all phones
   setTimeout(dismissLoader, 1500);
 });
