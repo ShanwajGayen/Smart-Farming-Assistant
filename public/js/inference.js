@@ -1,55 +1,64 @@
-/* ==========================================================================
-   Server-Side AI Inference — Calls Flask /api/predict endpoint
-   ========================================================================== */
-
-/**
- * Sends the uploaded image to the Flask backend for PyTorch inference.
- * @param {HTMLImageElement} imgElement - Image element with the uploaded photo
- * @returns {Promise<Object>} Diagnostic result with raw label and confidence
- */
-async function runCropInference(imgElement) {
-    try {
-        // Convert the displayed image to a Blob for upload
-        const response = await fetch(imgElement.src);
-        const blob = await response.blob();
-
-        const formData = new FormData();
-        formData.append('file', blob, 'leaf_image.png');
-
-        const apiResponse = await fetch('/api/predict', {
-            method: 'POST',
-            body: formData,
-        });
-
-        const data = await apiResponse.json();
-
-        if (apiResponse.ok && data.success) {
-            const confidenceValue = Number(data.confidence) || 0;
-
-            if (confidenceValue < 30) {
-                return {
-                    diseaseRaw: 'Not a plant or leaf',
-                    confidence: confidenceValue.toFixed(1),
-                    isNotPlantLeaf: true,
-                };
-            }
-
-            return {
-                diseaseRaw: data.prediction,
-                confidence: confidenceValue.toFixed(1),
-                isNotPlantLeaf: false,
-            };
-        } else {
-            console.error('Prediction API error:', data.error);
-        }
-    } catch (err) {
-        console.error('Failed to call prediction API:', err);
+// Compress and downscale massive mobile camera photos in the browser
+function compressMobilePhoto(file, maxDimension = 800) {
+  return new Promise((resolve) => {
+    // If it's already small, don't re-encode
+    if (file.size < 500 * 1024) {
+      resolve(file);
+      return;
     }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
 
-    // Fallback if API fails
-    return {
-        diseaseRaw: 'Potato___Early_blight',
-        confidence: '94.6',
-        isNotPlantLeaf: false,
+        if (width > height && width > maxDimension) {
+          height = Math.round((height * maxDimension) / width);
+          width = maxDimension;
+        } else if (height > maxDimension) {
+          width = Math.round((width * maxDimension) / height);
+          height = maxDimension;
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            resolve(new File([blob], file.name || "leaf.jpg", { type: "image/jpeg" }));
+          },
+          "image/jpeg",
+          0.85
+        );
+      };
+      img.src = e.target.result;
     };
+    reader.readAsDataURL(file);
+  });
+}
+
+// Wrap your upload function:
+async function handlePredict(imageFile) {
+  try {
+    // Compress first to prevent phone memory crash
+    const preparedFile = await compressMobilePhoto(imageFile);
+
+    const formData = new FormData();
+    formData.append("file", preparedFile);
+
+    const response = await fetch("/api/predict", {
+      method: "POST",
+      body: formData,
+    });
+
+    const data = await response.json();
+    return data;
+  } catch (err) {
+    console.error("Prediction error:", err);
+    alert("Prediction failed. Please try uploading a clearer leaf photo.");
+  }
 }
