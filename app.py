@@ -78,6 +78,7 @@ model = None
 model_loaded = False
 device = torch.device("cpu")
 
+# Corrected ToTensor() syntax below
 if transforms is not None:
     image_transforms = transforms.Compose([
         transforms.Resize((224, 224)),
@@ -100,8 +101,8 @@ def init_classes():
                     print(f"Loaded {num_classes} classes from {CLASS_PATH}")
                     return
         except Exception as e:
-            print(f"Notice: Using default classes ({e})")
-    print(f"Using built-in {num_classes} classes.")
+            print(f"Notice: Using default classes due to: {e}")
+    print(f"Using built-in {num_classes} disease classes.")
 
 
 init_classes()
@@ -156,15 +157,17 @@ def predict():
     file = request.files["file"]
     try:
         raw_img = Image.open(file.stream)
-        # Automatic EXIF rotation fix for mobile camera shots
+        
+        # 1. Correct mobile camera orientation so photos are never fed sideways
         img = ImageOps.exif_transpose(raw_img)
         if img.mode != "RGB":
             img = img.convert("RGB")
 
-        # Memory bounds to guarantee stability on 512MB RAM
+        # 2. Downscale in memory to prevent Render 512MB RAM crash
         img.thumbnail((800, 800), Image.Resampling.LANCZOS)
 
         tensor = image_transforms(img).unsqueeze(0).to(device)
+
         with torch.no_grad():
             outputs = model(tensor)
             probs = torch.softmax(outputs, dim=1)[0]
@@ -177,8 +180,8 @@ def predict():
 
         best_conf = top5[0]["confidence"]
         best_class = top5[0]["class"]
-
-        # 15% threshold tailored for phone cameras in field lighting
+        
+        # Real-world threshold for camera leaf photos
         is_not_plant = best_conf < 15.0
 
         return jsonify({
@@ -189,8 +192,8 @@ def predict():
             "top5": top5,
         })
     except Exception as exc:
-        print(f"Prediction error: {exc}")
-        return jsonify({"error": f"Image processing failed: {str(exc)}"}), 500
+        print(f"Inference error: {exc}")
+        return jsonify({"error": str(exc)}), 500
 
 
 @app.route("/api/remedy", methods=["POST"])
@@ -200,23 +203,23 @@ def remedy():
     lang = data.get("language", "en")
 
     if not disease or "not a plant" in disease.lower():
-        msg = "এই ছবিটি স্পষ্ট নয়। পাতার পরিষ্কার ক্লোজ-আপ ছবি দিন।" if lang == "bn" else "Please upload a clear close-up picture of a single crop leaf."
+        msg = "এই ছবিটি স্পষ্ট নয়। পাতার পরিষ্কার ছবি দিন।" if lang == "bn" else "Please upload a clear picture of a single crop leaf."
         return jsonify({"success": True, "remedy": msg})
 
     if GEMINI_API_KEY:
         try:
             target_lang = "Bengali" if lang == "bn" else "English"
-            prompt = f"Act as an agricultural expert. Diagnosed crop disease: {disease}. Give 2 practical treatment and management recommendations in {target_lang}."
+            prompt = f"Act as an agricultural expert. Plant condition: {disease}. Give 2 actionable treatment steps in {target_lang}."
             endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
             payload = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode("utf-8")
             req = urllib.request.Request(endpoint, data=payload, headers={"Content-Type": "application/json"})
-            with urllib.request.urlopen(req, timeout=12) as res:
+            with urllib.request.urlopen(req, timeout=10) as res:
                 result = json.loads(res.read().decode("utf-8"))
                 return jsonify({"success": True, "remedy": result["candidates"][0]["content"]["parts"][0]["text"].strip()})
         except Exception as e:
             print("Gemini API error:", e)
 
-    fallback = "আক্রান্ত পাতা অবিলম্বে অপসারণ করুন এবং অনুমোদিত ছত্রাকনাশক স্প্রে করুন।" if lang == "bn" else "Prune heavily infected leaves and apply an appropriate protective organic or copper fungicide."
+    fallback = f"আক্রান্ত পাতা অপসারণ করুন ও অনুমোদিত ছত্রাকনাশক স্প্রে করুন।" if lang == "bn" else "Prune heavily infected leaves and apply an appropriate protective organic or copper fungicide."
     return jsonify({"success": True, "remedy": fallback})
 
 
