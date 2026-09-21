@@ -154,7 +154,7 @@ def load_model():
         model = model.to(device)
         model.eval()
         model_loaded = True
-        print("Model loaded successfully on CPU!")
+        print("Model loaded successfully!")
         return True
     except Exception as exc:
         print(f"Error loading model: {exc}")
@@ -171,29 +171,29 @@ def build_fallback_remedy(disease_name, confidence, language):
 
     if "healthy" in normalized:
         if language == "bn":
-            return f'"{safe_disease_name}" স্বাস্থ্যকর অবস্থায় আছে ({confidence:.1f}%)। ফসলের বৃদ্ধি বজায় রাখতে নিয়মিত পানি ও সুষম পুষ্টি দিন।'
-        return f'"{safe_disease_name}" appears healthy with {confidence:.1f}% confidence. Maintain consistent irrigation and good nutrition.'
+            return f'"{safe_disease_name}" স্বাস্থ্যকর অবস্থায় আছে ({confidence:.1f}%)। ফসলের বৃদ্ধি বজায় রাখতে নিয়মিত পানি ও সুষম সার দিন।'
+        return f'"{safe_disease_name}" appears healthy with {confidence:.1f}% confidence. Maintain consistent irrigation, nutrition, and canopy hygiene.'
 
     disease_map = {
         "early blight": {
-            "en": 'Detected "Early Blight" with {confidence:.1f}% confidence. Remove infected leaves immediately, increase spacing for airflow, and apply copper-based or Mancozeb fungicide according to instructions.',
-            "bn": '"Early Blight" রোগ শনাক্ত হয়েছে ({confidence:.1f}%)। আক্রান্ত পাতা দ্রুত তুলে ফেলুন এবং কপার বা মানকোজেব ছত্রাকনাশক প্রয়োগ করুন।'
+            "en": 'Detected "Early Blight" with {confidence:.1f}% confidence. Remove infected leaves immediately, increase spacing for airflow, and apply copper-based or Mancozeb fungicide according to label instructions.',
+            "bn": '"Early Blight" রোগ শনাক্ত হয়েছে ({confidence:.1f}%)। আক্রান্ত পাতা দ্রুত তুলে ফেলুন এবং কপার বা মানকোজেব ছত্রাকনাশক নির্দেশিত মাত্রায় প্রয়োগ করুন।'
         },
         "late blight": {
             "en": 'Detected "Late Blight" with {confidence:.1f}% confidence. Remove diseased foliage promptly, reduce leaf wetness, and apply a systemic fungicide like Metalaxyl or Mancozeb.',
-            "bn": '"Late Blight" রোগ শনাক্ত হয়েছে ({confidence:.1f}%)। আক্রান্ত পাতা দ্রুত পরিষ্কার করুন এবং মেটালাক্সিল বা মানকোজেব স্প্রে করুন।'
+            "bn": '"Late Blight" রোগ শনাক্ত হয়েছে ({confidence:.1f}%)। আক্রান্ত পাতা দ্রুত তুলে ফেলুন, গাছের চারপাশে আর্দ্রতা কমান এবং মেটালাক্সিল বা মানকোজেব স্প্রে করুন।'
         },
         "powdery mildew": {
-            "en": 'Detected "Powdery Mildew" with {confidence:.1f}% confidence. Improve air circulation, prune heavily infected shoots, and apply sulfur or potassium bicarbonate fungicide.',
-            "bn": '"Powdery Mildew" রোগ শনাক্ত হয়েছে ({confidence:.1f}%)। বাতাস চলাচলের ব্যবস্থা করুন এবং সালফার বা ছত্রাকনাশক ব্যবহার করুন।'
+            "en": 'Detected "Powdery Mildew" with {confidence:.1f}% confidence. Improve air circulation, remove heavily infected shoots, and apply sulfur or potassium bicarbonate fungicide.',
+            "bn": '"Powdery Mildew" শনাক্ত হয়েছে ({confidence:.1f}%)। বাতাস চলাচল বাড়ান এবং সালফার বা পটাশিয়াম বাইকার্বোনেট ছত্রাকনাশক ব্যবহার করুন।'
         },
         "bacterial spot": {
-            "en": 'Detected "Bacterial Spot" with {confidence:.1f}% confidence. Avoid overhead watering, sanitize pruning tools, and apply a copper-based bactericide.',
-            "bn": '"Bacterial Spot" শনাক্ত হয়েছে ({confidence:.1f}%)। পাতায় জল ছিটানো বন্ধ রাখুন এবং কপার ছত্রাকনাশক স্প্রে করুন।'
+            "en": 'Detected "Bacterial Spot" with {confidence:.1f}% confidence. Avoid splashing water on leaves, sanitize pruning tools, and apply a copper-based bactericide.',
+            "bn": '"Bacterial Spot" শনাক্ত হয়েছে ({confidence:.1f}%)। পাতায় পানি ছিটানো বন্ধ রাখুন এবং কপার ব্যাকটেরিসাইড ব্যবহার করুন।'
         },
         "leaf spot": {
-            "en": 'Detected "Leaf Spot" with {confidence:.1f}% confidence. Remove affected foliage and apply copper or broad-spectrum fungicide to limit lesion expansion.',
-            "bn": '"Leaf Spot" রোগ শনাক্ত হয়েছে ({confidence:.1f}%)। আক্রান্ত পাতা ছাঁটাই করুন এবং কপার ছত্রাকনাশক ব্যবহার করুন।'
+            "en": 'Detected "Leaf Spot" with {confidence:.1f}% confidence. Remove affected leaves promptly, improve spacing, and apply a protective copper- or Mancozeb-based fungicide.',
+            "bn": '"Leaf Spot" শনাক্ত হয়েছে ({confidence:.1f}%)। আক্রান্ত পাতা দ্রুত তুলে ফেলুন এবং কপার বা মানকোজেব ছত্রাকনাশক ব্যবহার করুন।'
         }
     }
 
@@ -202,8 +202,8 @@ def build_fallback_remedy(disease_name, confidence, language):
             return advice["bn" if language == "bn" else "en"].format(confidence=confidence)
 
     if language == "bn":
-        return f'"{safe_disease_name}" রোগ শনাক্ত হয়েছে ({confidence:.1f}%)। আক্রান্ত অংশ অপসারণ করুন এবং প্রয়োজনীয় ছত্রাকনাশক ব্যবহার করুন।'
-    return f'Detected "{safe_disease_name}" with {confidence:.1f}% confidence. Remove infected foliage and apply appropriate protective fungicide.'
+        return f'"{safe_disease_name}" রোগ শনাক্ত হয়েছে ({confidence:.1f}%)। আক্রান্ত পাতা অপসারণ করুন এবং অনুমোদিত ছত্রাকনাশক স্প্রে করুন।'
+    return f'Detected "{safe_disease_name}" with {confidence:.1f}% confidence. Remove infected foliage and apply an appropriate protective fungicide.'
 
 
 @app.route("/")
@@ -239,13 +239,13 @@ def remedy():
     safe_disease_name = disease_name.replace("___", " - ").replace("_", " ")
 
     if confidence < 15 or "not a plant" in safe_disease_name.lower() or "not a leaf" in safe_disease_name.lower():
-        fallback = "এই ছবিটিতে গাছ বা পাতার বৈশিষ্ট্য শনাক্ত হয়নি। দয়া করে পরিষ্কার সবুজ পাতার ছবি দিন।" if language == "bn" else "This image does not appear to be a plant leaf. Please upload a clear photo of a crop leaf."
+        fallback = "এই ছবিটিতে গাছ বা পাতার বৈশিষ্ট্য শনাক্ত হয়নি। দয়া করে পরিষ্কার সবুজ পাতার ক্লোজ-আপ ছবি দিন।" if language == "bn" else "This image does not appear to be a plant leaf. Please upload a clear photo of a crop leaf."
         return jsonify({"success": True, "remedy": fallback, "source": "validation"})
 
     if GEMINI_API_KEY:
         try:
             target_lang = "Bengali" if language == "bn" else "English"
-            prompt = f"Act as an expert agricultural scientist. Diagnosed plant disease: {safe_disease_name} with {confidence:.1f}% confidence. Give 2 concise, practical treatment steps in {target_lang}."
+            prompt = f"Act as an expert agricultural scientist. Plant condition: {safe_disease_name} ({confidence:.1f}% confidence). Give 2 concise practical treatment steps in {target_lang}."
             endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
             body_data = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode("utf-8")
             req = urllib.request.Request(endpoint, data=body_data, headers={"Content-Type": "application/json"})
@@ -278,7 +278,7 @@ def predict():
         if image.mode != "RGB":
             image = image.convert("RGB")
 
-        # 2. Bound image size in memory to prevent Render 512MB RAM exhaustion
+        # 2. Bound image dimensions to prevent Render free-tier RAM crash
         image.thumbnail((800, 800), Image.Resampling.LANCZOS)
 
         image_buffer = io.BytesIO()
