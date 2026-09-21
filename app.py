@@ -100,7 +100,7 @@ def init_classes():
                     print(f"Loaded {num_classes} classes from {CLASS_PATH}")
                     return
         except Exception as e:
-            print(f"Using default classes: {e}")
+            print(f"Notice: Using default classes ({e})")
     print(f"Using built-in {num_classes} classes.")
 
 
@@ -149,23 +149,21 @@ def config():
 @app.route("/api/predict", methods=["POST"])
 def predict():
     if not model_loaded:
-        return jsonify({"success": False, "error": "Model not ready"}), 503
+        return jsonify({"success": False, "error": "Model not loaded"}), 503
     if "file" not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
 
     file = request.files["file"]
     try:
         raw_img = Image.open(file.stream)
-        
-        # 1. Correct mobile phone EXIF rotation
+        # Automatic EXIF rotation fix for mobile camera shots
         img = ImageOps.exif_transpose(raw_img)
         if img.mode != "RGB":
             img = img.convert("RGB")
 
-        # 2. Limit memory footprint on Render free tier
-        img.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
+        # Memory bounds to guarantee stability on 512MB RAM
+        img.thumbnail((800, 800), Image.Resampling.LANCZOS)
 
-        # 3. Model inference
         tensor = image_transforms(img).unsqueeze(0).to(device)
         with torch.no_grad():
             outputs = model(tensor)
@@ -180,7 +178,7 @@ def predict():
         best_conf = top5[0]["confidence"]
         best_class = top5[0]["class"]
 
-        # 4. Realistic threshold for real-world phone photos (1/42 random baseline is ~2.38%)
+        # 15% threshold tailored for phone cameras in field lighting
         is_not_plant = best_conf < 15.0
 
         return jsonify({
@@ -202,23 +200,23 @@ def remedy():
     lang = data.get("language", "en")
 
     if not disease or "not a plant" in disease.lower():
-        msg = "এই ছবিটি স্পষ্ট নয়। পাতার পরিষ্কার ক্লোজ-আপ ছবি দিন।" if lang == "bn" else "Please upload a clear close-up of a single crop leaf."
+        msg = "এই ছবিটি স্পষ্ট নয়। পাতার পরিষ্কার ক্লোজ-আপ ছবি দিন।" if lang == "bn" else "Please upload a clear close-up picture of a single crop leaf."
         return jsonify({"success": True, "remedy": msg})
 
     if GEMINI_API_KEY:
         try:
             target_lang = "Bengali" if lang == "bn" else "English"
-            prompt = f"Act as an agronomist. Plant diagnosis: {disease}. Provide 2 clear, practical treatment steps in {target_lang}."
+            prompt = f"Act as an agricultural expert. Diagnosed crop disease: {disease}. Give 2 practical treatment and management recommendations in {target_lang}."
             endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
             payload = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode("utf-8")
             req = urllib.request.Request(endpoint, data=payload, headers={"Content-Type": "application/json"})
-            with urllib.request.urlopen(req, timeout=10) as res:
+            with urllib.request.urlopen(req, timeout=12) as res:
                 result = json.loads(res.read().decode("utf-8"))
                 return jsonify({"success": True, "remedy": result["candidates"][0]["content"]["parts"][0]["text"].strip()})
         except Exception as e:
             print("Gemini API error:", e)
 
-    fallback = f"আক্রান্ত পাতা ছেঁটে ফেলুন এবং অনুমোদিত ছত্রাকনাশক স্প্রে করুন।" if lang == "bn" else f"Prune infected foliage and apply an appropriate protective organic or copper fungicide."
+    fallback = "আক্রান্ত পাতা অবিলম্বে অপসারণ করুন এবং অনুমোদিত ছত্রাকনাশক স্প্রে করুন।" if lang == "bn" else "Prune heavily infected leaves and apply an appropriate protective organic or copper fungicide."
     return jsonify({"success": True, "remedy": fallback})
 
 

@@ -2,14 +2,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const loader = document.getElementById("loading") || document.querySelector(".loading-overlay") || document.querySelector(".loader");
   const video = document.querySelector("#loading video") || document.querySelector("video");
 
-  function dismissLoader() {
+  function hideLoader() {
     if (!loader) return;
-    loader.style.transition = "opacity 0.4s ease-out";
+    loader.style.transition = "opacity 0.3s ease-out";
     loader.style.opacity = "0";
     setTimeout(() => {
       loader.style.display = "none";
       document.body.style.overflow = "auto";
-    }, 400);
+    }, 300);
   }
 
   if (video) {
@@ -17,16 +17,14 @@ document.addEventListener("DOMContentLoaded", () => {
     video.playsInline = true;
     video.setAttribute("playsinline", "");
     video.setAttribute("webkit-playsinline", "");
-    video.play().catch(() => {
-      dismissLoader();
-    });
-    video.addEventListener("ended", dismissLoader);
+    video.play().catch(() => hideLoader());
+    video.addEventListener("ended", hideLoader);
   }
 
   if (loader) {
-    loader.addEventListener("click", dismissLoader);
-    loader.addEventListener("touchstart", dismissLoader, { passive: true });
+    loader.addEventListener("click", hideLoader);
+    loader.addEventListener("touchstart", hideLoader, { passive: true });
   }
 
-  setTimeout(dismissLoader, 1500);
+  setTimeout(hideLoader, 1200);
 });
