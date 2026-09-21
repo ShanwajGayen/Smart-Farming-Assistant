@@ -1,118 +1,48 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bn">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Smart Crop Assistant</title>
+  <title>Smart Farming Assistant - ফসল ও পাতার রোগ নির্ণয়</title>
   <link rel="stylesheet" href="/css/style.css">
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      margin: 0;
-      padding: 16px;
-      background-color: #f4f7f6;
-      color: #333;
-    }
-    .card {
-      background: #ffffff;
-      border-radius: 16px;
-      padding: 20px;
-      max-width: 480px;
-      margin: 0 auto 20px auto;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.06);
-    }
-    h2 {
-      color: #1b5e20;
-      margin-top: 0;
-      font-size: 20px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    p.subtitle {
-      color: #555;
-      font-size: 14px;
-      margin: 4px 0 16px 0;
-    }
-    .btn-group {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-    .btn-camera {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      background: #2e7d32;
-      color: #ffffff;
-      font-size: 16px;
-      font-weight: 600;
-      padding: 14px 20px;
-      border: none;
-      border-radius: 12px;
-      cursor: pointer;
-      box-shadow: 0 3px 8px rgba(46,125,50,0.25);
-    }
-    .btn-gallery {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      background: #ffffff;
-      color: #2e7d32;
-      font-size: 16px;
-      font-weight: 600;
-      padding: 14px 20px;
-      border: 2px solid #2e7d32;
-      border-radius: 12px;
-      cursor: pointer;
-    }
-    .preview-container {
-      margin-top: 16px;
-      text-align: center;
-    }
-    #previewImg {
-      display: none;
-      width: 100%;
-      max-height: 280px;
-      object-fit: contain;
-      border-radius: 12px;
-      border: 1px solid #ddd;
-      margin-top: 10px;
-    }
-    #resultBox {
-      margin-top: 16px;
-    }
-  </style>
 </head>
-<body>
+<body style="margin:0; padding:12px; background:#f4f7f5; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
 
-  <div class="card">
-    <h2>📸 Leaf / Crop Image Capture</h2>
-    <p class="subtitle">Tap to Open Camera or Choose Photo:</p>
+  <div style="max-width:480px; margin:0 auto; background:#ffffff; border-radius:18px; padding:20px; box-shadow:0 6px 20px rgba(0,0,0,0.06); text-align:center;">
+    
+    <div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:4px;">
+      <span style="font-size:24px;">🌾</span>
+      <h2 style="color:#1b5e20; margin:0; font-size:20px; font-weight:800;">Smart Farming Assistant</h2>
+    </div>
+    <p style="color:#4caf50; font-size:14px; font-weight:700; margin:0 0 16px 0;">স্মার্ট কৃষি সহকারী (রোগ নির্ণয় ও প্রতিকার)</p>
 
-    <!-- Hidden Native Inputs for 100% Mobile Stability -->
-    <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display: none;">
-    <input type="file" id="galleryInput" accept="image/*" style="display: none;">
+    <div style="background:#f1f8e9; border:1px solid #c8e6c9; border-radius:14px; padding:16px;">
+      <p style="color:#2e7d32; font-size:14px; font-weight:700; margin:0 0 12px 0;">📸 পাতার ছবি তুলুন বা গ্যালারি থেকে বেছে নিন:</p>
 
-    <div class="btn-group">
-      <button type="button" class="btn-camera" onclick="document.getElementById('cameraInput').click()">
-        📷 Open Camera
-      </button>
-      <button type="button" class="btn-gallery" onclick="document.getElementById('galleryInput').click()">
-        🖼️ Choose from Gallery
-      </button>
+      <!-- Native Camera & Gallery Inputs -->
+      <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;">
+      <input type="file" id="galleryInput" accept="image/*" style="display:none;">
+
+      <div style="display:flex; gap:10px;">
+        <button type="button" id="btnCamera" style="flex:1; padding:14px 10px; background:#2e7d32; color:#ffffff; border:none; border-radius:12px; font-size:15px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 3px 10px rgba(46,125,50,0.25);">
+          📷 ক্যামেরা খুলুন
+        </button>
+        <button type="button" id="btnGallery" style="flex:1; padding:14px 10px; background:#e8f5e9; color:#1b5e20; border:1.5px solid #a5d6a7; border-radius:12px; font-size:15px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+          🖼️ গ্যালারি
+        </button>
+      </div>
     </div>
 
-    <div class="preview-container">
-      <span id="previewLabel" style="font-size: 13px; font-weight: bold; color: #444; display: none;">Image Preview:</span>
-      <!-- Clean image tag without broken placeholder text -->
-      <img id="previewImg">
+    <!-- Live Preview Box (Zero Broken Placeholder Icons) -->
+    <div style="margin-top:16px;">
+      <div id="previewCard" style="display:none; margin:10px auto; background:#fafafa; border:2px solid #81c784; border-radius:14px; padding:6px; overflow:hidden;">
+        <img id="photoPreview" style="width:100%; max-height:280px; object-fit:contain; border-radius:10px; display:block;" />
+      </div>
     </div>
 
-    <div id="resultBox"></div>
+    <!-- Status & Results Output Area -->
+    <div id="resultOutput" style="margin-top:14px; text-align:left;"></div>
+
   </div>
 
   <script src="/js/inference.js"></script>

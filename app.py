@@ -17,23 +17,6 @@ from flask import Flask, jsonify, request, send_from_directory
 from PIL import Image, ImageOps
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-
-def load_dotenv_file():
-    env_path = os.path.join(BASE_DIR, ".env")
-    if not os.path.exists(env_path):
-        return
-
-    with open(env_path, "r", encoding="utf-8") as env_file:
-        for line in env_file:
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, value = line.split("=", 1)
-            os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
-
-
-load_dotenv_file()
 PUBLIC_DIR = os.path.join(BASE_DIR, "public")
 MODEL_DIR = os.path.join(BASE_DIR, "ai model")
 MODEL_PATH = os.path.join(MODEL_DIR, "crop_disease_model.pth")
@@ -44,7 +27,6 @@ app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024
 app.config["UPLOAD_FOLDER"] = os.path.join(BASE_DIR, "uploads")
 app.config["JSON_SORT_KEYS"] = False
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
-HF_API_TOKEN = os.getenv("HF_API_TOKEN", "").strip() or os.getenv("HUGGING_FACE_API_TOKEN", "").strip()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 
 DEFAULT_42_CLASSES = [
@@ -92,6 +74,51 @@ DEFAULT_42_CLASSES = [
     "Rice___Neck_Blast"
 ]
 
+BEN_MAP = {
+    "Apple___Apple_scab": "আপেল — স্ক্যাব রোগ",
+    "Apple___Black_rot": "আপেল — ব্ল্যাক রট (কালো পচা)",
+    "Apple___Cedar_apple_rust": "আপেল — সিডার অ্যাপেল রাস্ট (মরিচা)",
+    "Apple___healthy": "আপেল — সুস্থ ও নিরোগ পাতা",
+    "Blueberry___healthy": "ব্লুবেরি — সুস্থ পাতা",
+    "Cherry_(including_sour)___Powdery_mildew": "চেরি — পাউডারি মিলডিউ (ছত্রাক)",
+    "Cherry_(including_sour)___healthy": "চেরি — সুস্থ পাতা",
+    "Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot": "ভুট্টা — ধূসর পাতার দাগ (সারকোস্পোরা)",
+    "Corn_(maize)___Common_rust_": "ভুট্টা — সাধারণ রাস্ট (মরিচা রোগ)",
+    "Corn_(maize)___Northern_Leaf_Blight": "ভুট্টা — নর্দান লিফ ব্লাইট (পাতাপোড়া রোগ)",
+    "Corn_(maize)___healthy": "ভুট্টা — সুস্থ পাতা",
+    "Grape___Black_rot": "আঙুর — ব্ল্যাক রট (কালো পচা রোগ)",
+    "Grape___Esca_(Black_Measles)": "আঙুর — এসকা (কালো হাম রোগ)",
+    "Grape___Leaf_blight_(Isariopsis_Leaf_Spot)": "আঙুর — পাতা পোড়া রোগ (লিফ ব্লাইট)",
+    "Grape___healthy": "আঙুর — সুস্থ পাতা",
+    "Orange___Haunglongbing_(Citrus_greening)": "লেবু/কমলা — সাইট্রাস গ্রিনিং রোগ",
+    "Peach___Bacterial_spot": "পীচ — ব্যাকটেরিয়াজনিত পাতার দাগ",
+    "Peach___healthy": "পীচ — সুস্থ পাতা",
+    "Pepper,_bell___Bacterial_spot": "ক্যাপসিকাম/মরিচ — ব্যাকটেরিয়াজনিত দাগ রোগ",
+    "Pepper,_bell___healthy": "ক্যাপসিকাম/মরিচ — সুস্থ পাতা",
+    "Potato___Early_blight": "আলু — আর্লি ব্লাইট (আগাম ধসা রোগ)",
+    "Potato___Late_blight": "আলু — লেট ব্লাইট (নাবী ধসা রোগ)",
+    "Potato___healthy": "আলু — সুস্থ পাতা",
+    "Raspberry___healthy": "রাস্পবেরি — সুস্থ পাতা",
+    "Soybean___healthy": "সয়াবিন — সুস্থ পাতা",
+    "Squash___Powdery_mildew": "মিষ্টিকুমড়া/স্কোয়াশ — পাউডারি মিলডিউ",
+    "Strawberry___Leaf_scorch": "স্ট্রবেরি — লিফ স্কর্চ (পাতা ঝলসানো রোগ)",
+    "Strawberry___healthy": "স্ট্রবেরি — সুস্থ পাতা",
+    "Tomato___Bacterial_spot": "টমেটো — ব্যাকটেরিয়াল স্পট (জীবাণু দাগ)",
+    "Tomato___Early_blight": "টমেটো — আর্লি ব্লাইট (আগাম ধসা)",
+    "Tomato___Late_blight": "টমেটো — লেট ব্লাইট (নাবী ধসা)",
+    "Tomato___Leaf_Mold": "টমেটো — লিফ মোল্ড (পাতার ছত্রাক)",
+    "Tomato___Septoria_leaf_spot": "টমেটো — সেপটোরিয়া পাতার দাগ",
+    "Tomato___Spider_mites Two-spotted_spider_mite": "টমেটো — লাল মাকড়সা / স্পাইডার মাইট",
+    "Tomato___Target_Spot": "টমেটো — টার্গেট স্পট দাগ",
+    "Tomato___Tomato_Yellow_Leaf_Curl_Virus": "টমেটো — হলুদ পাতা কুঁকড়ানো ভাইরাস",
+    "Tomato___Tomato_mosaic_virus": "টমেটো — মোজাইক ভাইরাস",
+    "Tomato___healthy": "টমেটো — সুস্থ পাতা",
+    "Rice___Brown_Spot": "ধান — বাদামী দাগ রোগ (ব্রাউন স্পট)",
+    "Rice___Healthy": "ধান — সুস্থ ধান গাছ",
+    "Rice___Leaf_Blast": "ধান — পাতা ব্লাস্ট রোগ",
+    "Rice___Neck_Blast": "ধান — শীষ ব্লাস্ট (নেক ব্লাস্ট রোগ)"
+}
+
 class_names = DEFAULT_42_CLASSES
 num_classes = len(class_names)
 model = None
@@ -108,41 +135,11 @@ else:
     image_transforms = None
 
 
-def load_class_names():
-    global class_names, num_classes
-    if os.path.exists(CLASS_PATH):
-        try:
-            with open(CLASS_PATH, "r", encoding="utf-8") as file:
-                loaded = json.load(file)
-                if isinstance(loaded, list) and len(loaded) > 0:
-                    class_names = loaded
-                    num_classes = len(class_names)
-                    print(f"Loaded {num_classes} disease classes from {CLASS_PATH}")
-                    return
-        except Exception as exc:
-            print(f"Error reading disease_classes.json: {exc}")
-
-    class_names = DEFAULT_42_CLASSES
-    num_classes = len(class_names)
-    print(f"Using built-in {num_classes} classes.")
-
-
-load_class_names()
-
-
 def load_model():
     global model, model_loaded, num_classes, class_names, device
-
-    if torch is None or models is None or nn is None:
-        print("ML dependencies unavailable.")
+    if torch is None or models is None or nn is None or not os.path.exists(MODEL_PATH):
         model_loaded = False
         return False
-
-    if not os.path.exists(MODEL_PATH):
-        print(f"Model file not found: {MODEL_PATH}")
-        model_loaded = False
-        return False
-
     try:
         checkpoint = torch.load(MODEL_PATH, map_location=device)
         if isinstance(checkpoint, dict) and "state_dict" in checkpoint:
@@ -165,68 +162,17 @@ def load_model():
 load_model()
 
 
-def build_fallback_remedy(disease_name, confidence, language):
-    safe_disease_name = disease_name.replace("___", " - ").replace("_", " ")
-    normalized = safe_disease_name.lower()
-
-    if "healthy" in normalized:
-        if language == "bn":
-            return f'"{safe_disease_name}" স্বাস্থ্যকর অবস্থায় আছে ({confidence:.1f}%)। ফসলের বৃদ্ধি বজায় রাখতে নিয়মিত পানি ও সুষম সার দিন।'
-        return f'"{safe_disease_name}" appears healthy with {confidence:.1f}% confidence. Maintain consistent irrigation, nutrition, and canopy hygiene.'
-
-    disease_map = {
-        "early blight": {
-            "en": 'Detected "Early Blight" with {confidence:.1f}% confidence. Remove infected leaves immediately, increase spacing for airflow, and apply copper-based or Mancozeb fungicide according to label instructions.',
-            "bn": '"Early Blight" রোগ শনাক্ত হয়েছে ({confidence:.1f}%)। আক্রান্ত পাতা দ্রুত তুলে ফেলুন এবং কপার বা মানকোজেব ছত্রাকনাশক নির্দেশিত মাত্রায় প্রয়োগ করুন।'
-        },
-        "late blight": {
-            "en": 'Detected "Late Blight" with {confidence:.1f}% confidence. Remove diseased foliage promptly, reduce leaf wetness, and apply a systemic fungicide like Metalaxyl or Mancozeb.',
-            "bn": '"Late Blight" রোগ শনাক্ত হয়েছে ({confidence:.1f}%)। আক্রান্ত পাতা দ্রুত তুলে ফেলুন, গাছের চারপাশে আর্দ্রতা কমান এবং মেটালাক্সিল বা মানকোজেব স্প্রে করুন।'
-        },
-        "powdery mildew": {
-            "en": 'Detected "Powdery Mildew" with {confidence:.1f}% confidence. Improve air circulation, remove heavily infected shoots, and apply sulfur or potassium bicarbonate fungicide.',
-            "bn": '"Powdery Mildew" শনাক্ত হয়েছে ({confidence:.1f}%)। বাতাস চলাচল বাড়ান এবং সালফার বা পটাশিয়াম বাইকার্বোনেট ছত্রাকনাশক ব্যবহার করুন।'
-        },
-        "bacterial spot": {
-            "en": 'Detected "Bacterial Spot" with {confidence:.1f}% confidence. Avoid splashing water on leaves, sanitize pruning tools, and apply a copper-based bactericide.',
-            "bn": '"Bacterial Spot" শনাক্ত হয়েছে ({confidence:.1f}%)। পাতায় পানি ছিটানো বন্ধ রাখুন এবং কপার ব্যাকটেরিসাইড ব্যবহার করুন।'
-        },
-        "leaf spot": {
-            "en": 'Detected "Leaf Spot" with {confidence:.1f}% confidence. Remove affected leaves promptly, improve spacing, and apply a protective copper- or Mancozeb-based fungicide.',
-            "bn": '"Leaf Spot" শনাক্ত হয়েছে ({confidence:.1f}%)। আক্রান্ত পাতা দ্রুত তুলে ফেলুন এবং কপার বা মানকোজেব ছত্রাকনাশক ব্যবহার করুন।'
-        }
-    }
-
-    for key, advice in disease_map.items():
-        if key in normalized:
-            return advice["bn" if language == "bn" else "en"].format(confidence=confidence)
-
-    if language == "bn":
-        return f'"{safe_disease_name}" রোগ শনাক্ত হয়েছে ({confidence:.1f}%)। আক্রান্ত পাতা অপসারণ করুন এবং অনুমোদিত ছত্রাকনাশক স্প্রে করুন।'
-    return f'Detected "{safe_disease_name}" with {confidence:.1f}% confidence. Remove infected foliage and apply an appropriate protective fungicide.'
-
-
 @app.route("/")
 def index():
     return send_from_directory(PUBLIC_DIR, "index.html")
 
 
-@app.route("/api/status")
-def status():
-    return jsonify({
-        "model_ready": model_loaded,
-        "num_classes": num_classes,
-        "device": str(device),
-    })
-
-
 @app.route("/api/config")
 def app_config():
     return jsonify({
-        "hasHfKey": bool(HF_API_TOKEN),
         "hasGeminiKey": bool(GEMINI_API_KEY),
         "modelReady": model_loaded,
-        "provider": "gemini" if GEMINI_API_KEY else ("huggingface" if HF_API_TOKEN else "fallback"),
+        "classesCount": num_classes,
     })
 
 
@@ -235,27 +181,30 @@ def remedy():
     payload = request.get_json(silent=True) or {}
     disease_name = str(payload.get("diseaseName") or "unknown crop condition")
     confidence = float(payload.get("confidence") or 0)
-    language = str(payload.get("language") or "en")
-    safe_disease_name = disease_name.replace("___", " - ").replace("_", " ")
+    language = str(payload.get("language") or "bn")
 
-    if confidence < 15 or "not a plant" in safe_disease_name.lower() or "not a leaf" in safe_disease_name.lower():
-        fallback = "এই ছবিটিতে গাছ বা পাতার বৈশিষ্ট্য শনাক্ত হয়নি। দয়া করে পরিষ্কার সবুজ পাতার ক্লোজ-আপ ছবি দিন।" if language == "bn" else "This image does not appear to be a plant leaf. Please upload a clear photo of a crop leaf."
-        return jsonify({"success": True, "remedy": fallback, "source": "validation"})
+    if confidence < 15 or "not a plant" in disease_name.lower():
+        fallback = "এই ছবিটিতে কোনো পরিষ্কার পাতা শনাক্ত করা যায়নি। দয়া করে ক্যামেরায় একটি একক পাতার স্পষ্ট ছবি তুলুন।"
+        return jsonify({"success": True, "remedy": fallback})
 
     if GEMINI_API_KEY:
         try:
-            target_lang = "Bengali" if language == "bn" else "English"
-            prompt = f"Act as an expert agricultural scientist. Plant condition: {safe_disease_name} ({confidence:.1f}% confidence). Give 2 concise practical treatment steps in {target_lang}."
+            prompt = (
+                f"Act as a rural agricultural extension officer. The farmer's crop condition is: {disease_name}. "
+                "Provide exactly 2 actionable, practical, organic and chemical treatment instructions in Bengali (বাংলা). "
+                "Use simple language that an Indian farmer understands. Keep it concise."
+            )
             endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
             body_data = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode("utf-8")
             req = urllib.request.Request(endpoint, data=body_data, headers={"Content-Type": "application/json"})
             with urllib.request.urlopen(req, timeout=12) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
-                return jsonify({"success": True, "remedy": data["candidates"][0]["content"]["parts"][0]["text"].strip(), "source": "gemini"})
+                return jsonify({"success": True, "remedy": data["candidates"][0]["content"]["parts"][0]["text"].strip()})
         except Exception as e:
             print("Gemini API error:", e)
 
-    return jsonify({"success": True, "remedy": build_fallback_remedy(safe_disease_name, confidence, language), "source": "fallback"})
+    fallback = f"আক্রান্ত পাতা অবিলম্বে ছেঁটে পরিষ্কার করুন এবং অনুমোদিত ছত্রাকনাশক (কপার অক্সিক্লোরাইড বা ম্যানকোজেব ২ গ্রাম/লিটার জলে) স্প্রে করুন।"
+    return jsonify({"success": True, "remedy": fallback})
 
 
 @app.route("/api/predict", methods=["POST"])
@@ -272,34 +221,30 @@ def predict():
 
     try:
         raw_img = Image.open(file.stream)
-        
-        # 1. Correct mobile camera EXIF rotation so photos are upright
         image = ImageOps.exif_transpose(raw_img)
         if image.mode != "RGB":
             image = image.convert("RGB")
 
-        # 2. Bound image dimensions to prevent Render free-tier RAM crash
         image.thumbnail((800, 800), Image.Resampling.LANCZOS)
-
-        image_buffer = io.BytesIO()
-        image.save(image_buffer, format="PNG")
-        image_buffer.seek(0)
-        image_base64 = __import__("base64").b64encode(image_buffer.getvalue()).decode()
-
         tensor = image_transforms(image).unsqueeze(0).to(device)
+
         with torch.no_grad():
             outputs = model(tensor)
             probabilities = torch.softmax(outputs, dim=1)
             predicted_class_idx = torch.argmax(probabilities, dim=1).item()
             confidence = probabilities[0, predicted_class_idx].item() * 100
 
-        predicted_class = class_names[predicted_class_idx] if predicted_class_idx < len(class_names) else f"class_{predicted_class_idx}"
+        raw_class = class_names[predicted_class_idx]
+        bengali_name = BEN_MAP.get(raw_class, raw_class.replace("___", " — ").replace("_", " "))
+        english_name = raw_class.replace("___", " — ").replace("_", " ")
+
         top_k = min(5, len(class_names))
         top5_probs, top5_indices = torch.topk(probabilities[0], k=top_k)
         top5_predictions = [
             {
-                "class": class_names[idx.item()] if idx.item() < len(class_names) else f"class_{idx.item()}",
-                "confidence": prob.item() * 100,
+                "class_en": class_names[idx.item()].replace("___", " — ").replace("_", " "),
+                "class_bn": BEN_MAP.get(class_names[idx.item()], class_names[idx.item()]),
+                "confidence": round(prob.item() * 100, 1),
             }
             for prob, idx in zip(top5_probs, top5_indices)
         ]
@@ -307,20 +252,20 @@ def predict():
         if confidence < 15:
             return jsonify({
                 "success": True,
-                "prediction": "Not a plant or leaf",
-                "confidence": confidence,
+                "prediction_bn": "গাছ বা পাতা শনাক্ত করা যায়নি",
+                "prediction_en": "Not a plant or leaf",
+                "confidence": round(confidence, 1),
                 "isNotPlantLeaf": True,
                 "top5": top5_predictions,
-                "image": f"data:image/png;base64,{image_base64}",
             })
 
         return jsonify({
             "success": True,
-            "prediction": predicted_class,
-            "confidence": confidence,
+            "prediction_bn": bengali_name,
+            "prediction_en": english_name,
+            "confidence": round(confidence, 1),
             "isNotPlantLeaf": False,
             "top5": top5_predictions,
-            "image": f"data:image/png;base64,{image_base64}",
         })
     except Exception as exc:
         return jsonify({"error": f"Error processing image: {str(exc)}"}), 500
@@ -334,8 +279,6 @@ def serve_static(path):
 
 
 if __name__ == "__main__":
-    print("Loading model...")
     load_model()
     port = int(os.environ.get("PORT", "10000"))
-    host = os.environ.get("HOST", "0.0.0.0")
-    app.run(debug=False, host=host, port=port)
+    app.run(debug=False, host="0.0.0.0", port=port)
